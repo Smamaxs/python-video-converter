@@ -230,6 +230,39 @@ class Converter(object):
         Create a thumbnail of the media file. See the documentation of
         converter.FFMpeg.thumbnail() for details.
         """
+
+        if 'time' and 'fname' in kwargs:
+
+            print kwargs['fname']
+
+            frame_time = kwargs['time']
+
+            if not os.path.exists(kwargs['fname']) and not self.ffmpeg.is_url(kwargs['fname']):
+                raise ConverterError("Source file doesn't exist: " + kwargs['fname'])
+
+            info = self.ffmpeg.probe(kwargs['fname'])
+            if info is None:
+                raise ConverterError("Can't get information about source file")
+
+            if not info.video and not info.audio:
+                raise ConverterError('Source file has no audio or video streams')
+
+            duration = info.format.duration
+
+            if frame_time > duration:
+                if info.format.duration >= 60:
+                    frame_time = 10
+                elif duration >= 6 and duration < 60:
+                    frame_time = 3
+                elif duration > 1 and duration < 6:
+                    frame_time = 1
+                else:
+                    frame_time = 0.01
+
+            print 'frane_time:: ' + str(frame_time)
+
+            kwargs['time'] = frame_time
+
         return self.ffmpeg.thumbnail(*args, **kwargs)
 
     def thumbnails(self, *args, **kwargs):
@@ -245,3 +278,17 @@ class Converter(object):
         of converter.FFMpeg.thumbnails() for details.
         """
         return self.ffmpeg.thumbnails_by_interval(*args, **kwargs)
+        
+        
+    def get_duration(self, file):
+        if not os.path.exists(file) and not self.ffmpeg.is_url(file):
+            raise ConverterError("Source file doesn't exist: " + file)
+
+        info = self.ffmpeg.probe(file)
+        if info is None:
+            raise ConverterError("Can't get information about source file")
+
+        if not info.video and not info.audio:
+            raise ConverterError('Source file has no audio or video streams')
+
+        return math.ceil(info.format.duration)
