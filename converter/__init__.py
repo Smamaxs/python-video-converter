@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import math
 import os
 
 from converter.avcodecs import video_codec_list, audio_codec_list, subtitle_codec_list
