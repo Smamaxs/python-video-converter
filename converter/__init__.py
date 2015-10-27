@@ -280,6 +280,54 @@ class Converter(object):
         return self.ffmpeg.thumbnails_by_interval(*args, **kwargs)
         
         
+    def crop(self, infile, outfile, options, timeout=10):
+        """
+        crop media file
+
+        >>> conv = Converter().convert('test1.ogg', '/tmp/output.mkv', {
+        ...    'format': 'mkv',
+        ...    'audio': { 'codec': 'aac' },
+        ...    'video': { 'codec': 'h264' }
+        ... })
+
+        >>> for timecode in conv:
+        ...   pass # can be used to inform the user about the progress
+        """
+
+        if not isinstance(options, dict):
+            raise ConverterError('Invalid options')
+
+        if not os.path.exists(infile) and not self.ffmpeg.is_url(infile):
+            raise ConverterError("Source file doesn't exist: " + infile)
+
+        info = self.ffmpeg.probe(infile)
+        if info is None:
+            raise ConverterError("Can't get information about source file")
+
+        if not info.video and not info.audio:
+            raise ConverterError('Source file has no audio or video streams')
+
+        if info.format.duration < 0.01:
+            raise ConverterError('Zero-length media')
+
+        for timecode in self.ffmpeg.crop(infile, outfile, options, timeout=timeout):
+            yield int((100.0 * timecode) / info.format.duration)
+
+
+    def get_stream_info(self, file):
+        if not os.path.exists(file) and not self.ffmpeg.is_url(file):
+            raise ConverterError("Source file doesn't exist: " + file)
+
+        info = self.ffmpeg.probe(file)
+        if info is None:
+            raise ConverterError("Can't get information about source file")
+
+        if not info.video and not info.audio:
+            raise ConverterError('Source file has no audio or video streams')
+
+        return info
+        
+        
     def get_duration(self, file):
         if not os.path.exists(file) and not self.ffmpeg.is_url(file):
             raise ConverterError("Source file doesn't exist: " + file)
