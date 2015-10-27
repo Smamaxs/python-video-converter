@@ -746,3 +746,102 @@ class FFMpeg(object):
         stderr_data.decode(console_encoding, errors="ignore")
         if any(not os.path.exists(option[1]) for option in option_list):
             raise FFMpegError('Error creating thumbnail: %s' % stderr_data)
+
+
+    def crop(self, infile, outfile, opts=None, timeout=10):
+        """
+        Crop media according to ffmpeg instructions.
+        No changes in video and audio format
+
+        >>> conv = FFMpeg().crop('test.ogg', '/tmp/output.mp3',
+        ...    {'width': '100px'|'in_w/2', 'height': '100px'|'in_h/2', 'x': '30px'|'in_w/2', 'y': '30px'|'in_h/2'})
+        >>> for timecode in conv:
+        ...    pass # can be used to inform the user about conversion progress
+        """
+        if not os.path.exists(infile) and not self.is_url(infile):
+            raise FFMpegError("Input file doesn't exist: " + infile)
+
+        if opts is None:
+            raise FFMpegError("No params for crop")
+
+        cmds = [self.ffmpeg_path, '-i', infile]
+        cmds.extend(['-filter:v', ])
+        cmds.extend(['crop={}:{}:{}:{}'.format(opts['width'], opts['height'], opts['x'], opts['y'])])
+        cmds.extend(['-c:a', 'copy'])
+        cmds.extend(['-y', outfile, ])
+
+        if timeout:
+            def on_sigalrm(*_):
+                signal.signal(signal.SIGALRM, signal.SIG_DFL)
+                raise Exception('timed out while waiting for ffmpeg')
+
+            signal.signal(signal.SIGALRM, on_sigalrm)
+
+        try:
+            p = self._spawn(cmds)
+        except OSError:
+            raise FFMpegError('Error while calling ffmpeg binary')
+
+        yielded = False
+        buf = ''
+        total_output = ''
+        pat = re.compile(r'time=([0-9.:]+) ')
+        while True:
+            if timeout:
+                signal.alarm(timeout)
+
+            ret = p.stderr.read(10)
+
+            if timeout:
+                signal.alarm(0)
+
+            if not ret:
+                break
+
+            ret = ret.decode(console_encoding, errors="ignore")
+            total_output += ret
+            buf += ret
+            if '\r' in buf:
+                line, buf = buf.split('\r', 1)
+
+                tmp = pat.findall(line)
+                if len(tmp) == 1:
+                    timespec = tmp[0]
+                    if ':' in timespec:
+                        timecode = 0
+                        for part in timespec.split(':'):
+                            timecode = 60 * timecode + float(part)
+                    else:
+                        timecode = float(tmp[0])
+                    yielded = True
+                    yield timecode
+
+        if timeout:
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+        p.communicate()  # wait for process to exit
+
+        if total_output == '':
+            raise FFMpegError('Error while calling ffmpeg binary')
+
+        cmd = ' '.join(cmds)
+        if '\n' in total_output:
+            line = total_output.split('\n')[-2]
+
+            if line.startswith('Received signal'):
+                # Received signal 15: terminating.
+                raise FFMpegConvertError(line.split(':')[0], cmd, total_output, pid=p.pid)
+            if line.startswith(infile + ': '):
+                err = line[len(infile) + 2:]
+                raise FFMpegConvertError('Encoding error', cmd, total_output,
+                                         err, pid=p.pid)
+            if line.startswith('Error while '):
+                raise FFMpegConvertError('Encoding error', cmd, total_output,
+                                         line, pid=p.pid)
+            if not yielded:
+                raise FFMpegConvertError('Unknown ffmpeg error', cmd,
+                                         total_output, line, pid=p.pid)
+        if p.returncode != 0:
+            raise FFMpegConvertError('Exited with code %d' % p.returncode, cmd,
+                                     total_output, pid=p.pid)
+
