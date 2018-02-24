@@ -233,7 +233,7 @@ class Converter(object):
 
         if 'time' and 'fname' in kwargs:
 
-            print kwargs['fname']
+            print(kwargs['fname'])
 
             frame_time = kwargs['time']
 
@@ -259,7 +259,7 @@ class Converter(object):
                 else:
                     frame_time = 0.01
 
-            print 'frane_time:: ' + str(frame_time)
+            print('frane_time:: ' + str(frame_time))
 
             kwargs['time'] = frame_time
 
