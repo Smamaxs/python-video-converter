@@ -357,7 +357,7 @@ class FFMpeg(object):
     def is_url(self, url):
         #: Accept objects that have string representations.
         try:
-            url = unicode(url)
+            url = str(url)
         except NameError:
             # We're on Python 3.
             url = str(url)
@@ -622,7 +622,7 @@ class FFMpeg(object):
             max_width = int(aspect * max_height)
 
         if sizing_policy not in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
-            print "invalid option {}".format(sizing_policy)
+            print("invalid option {}".format(sizing_policy))
             return sw, sh, None
 
         """

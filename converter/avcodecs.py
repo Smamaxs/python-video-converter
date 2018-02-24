@@ -209,7 +209,7 @@ class VideoCodec(BaseCodec):
             return sw, sh, None
 
         if sizing_policy not in ['Fit', 'Fill', 'Stretch', 'Keep', 'ShrinkToFit', 'ShrinkToFill']:
-            print "invalid option {}".format(sizing_policy)
+            print("invalid option {}".format(sizing_policy))
             return sw, sh, None
 
         """
